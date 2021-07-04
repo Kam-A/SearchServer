@@ -80,23 +80,7 @@ public:
     }
     vector<Document> FindTopDocuments(const string& raw_query,
                                       DocumentStatus status) const{
-        vector<Document> res;
-        switch (status) {
-            case DocumentStatus::ACTUAL:
-                res = FindTopDocuments(raw_query,[](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; });
-                break;
-            case DocumentStatus::IRRELEVANT:
-                res = FindTopDocuments(raw_query,[](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::IRRELEVANT; });
-                break;
-            case DocumentStatus::BANNED:
-                res = FindTopDocuments(raw_query,[](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::BANNED; });
-                break;
-            case DocumentStatus::REMOVED:
-                res = FindTopDocuments(raw_query,[](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::REMOVED; });
-                break;
-            default:
-                break;
-        }
+        vector<Document> res = FindTopDocuments(raw_query,[status](int document_id, DocumentStatus document_status, int rating) { return document_status == status; });
         return res;
     }
     template<typename PredFunc>
@@ -230,10 +214,11 @@ private:
                 continue;
             }
             const double inverse_document_freq = ComputeWordInverseDocumentFreq(word);
-            for (const auto [document_id, term_freq] : word_to_document_freqs_.at(word)) {
+            for (const auto& [document_id, term_freq] : word_to_document_freqs_.at(word)) {
+                const DocumentData& doc_data = documents_.at(document_id);
                 if (predFunc(document_id,
-                             documents_.at(document_id).status,
-                             documents_.at(document_id).rating)){
+                             doc_data.status,
+                             doc_data.rating)){
                     document_to_relevance[document_id] += term_freq * inverse_document_freq;
                 }
             }
@@ -243,16 +228,16 @@ private:
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
-            for (const auto [document_id, _] : word_to_document_freqs_.at(word)) {
+            for (const auto& [document_id, _] : word_to_document_freqs_.at(word)) {
                 document_to_relevance.erase(document_id);
             }
         }
 
         vector<Document> matched_documents;
-        for (const auto [document_id, relevance] : document_to_relevance) {
+        for (auto&& [document_id, relevance] : document_to_relevance) {
             matched_documents.push_back({
-                document_id,
-                relevance,
+                move(document_id),
+                move(relevance),
                 documents_.at(document_id).rating
             });
         }

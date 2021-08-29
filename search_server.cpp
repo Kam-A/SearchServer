@@ -27,10 +27,6 @@ vector<Document> SearchServer::FindTopDocuments(const string& raw_query) const {
 int SearchServer::GetDocumentCount() const {
     return static_cast<int>(documents_.size());
 }
-
-//int SearchServer::GetDocumentId(int index) const {
-//    return document_ids_.at(index);
-//}
 tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, int document_id) const {
     //LOG_DURATION_STREAM("Operation time", std::cout);
     Query query = ParseQuery(raw_query);

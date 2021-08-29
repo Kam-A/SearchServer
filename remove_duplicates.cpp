@@ -14,9 +14,9 @@ void RemoveDuplicates(SearchServer& search_server){
         // get size - const
         // push_back - amort/const
         // emplace - log(W)
-        int set_size = static_cast<int>(words_per_docs.size());
+        size_t set_size = words_per_docs.size();
         words_per_docs.emplace(curr_doc_voc);
-        if ( set_size == static_cast<int>(words_per_docs.size()))
+        if ( set_size == words_per_docs.size())
             doc_to_remove.push_back(doc_id);
     }
     for (const auto& doc_id :doc_to_remove){

@@ -11,9 +11,10 @@ void SearchServer::AddDocument(int document_id, const string& document, Document
     const double inv_word_count = 1.0 / words.size();
     for (const string& word : words) {
         word_to_document_freqs_[word][document_id] += inv_word_count;
+        doc_to_word_freq[document_id][word] += inv_word_count;
     }
     documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
-    document_ids_.push_back(document_id);
+    document_ids_.emplace(document_id);
 }
 vector<Document> SearchServer::FindTopDocuments(const string& raw_query, DocumentStatus status) const {
     return SearchServer::FindTopDocuments(raw_query,
@@ -26,10 +27,12 @@ vector<Document> SearchServer::FindTopDocuments(const string& raw_query) const {
 int SearchServer::GetDocumentCount() const {
     return static_cast<int>(documents_.size());
 }
-int SearchServer::GetDocumentId(int index) const {
-    return document_ids_.at(index);
-}
+
+//int SearchServer::GetDocumentId(int index) const {
+//    return document_ids_.at(index);
+//}
 tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, int document_id) const {
+    //LOG_DURATION_STREAM("Operation time", std::cout);
     Query query = ParseQuery(raw_query);
     vector<string> matched_words;
     for (const string& word : query.plus_words) {
@@ -114,4 +117,38 @@ SearchServer::Query SearchServer::ParseQuery(const string& text) const {
 }
 double SearchServer::ComputeWordInverseDocumentFreq(const string& word) const {
     return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
+}
+std::set<int>::const_iterator SearchServer::begin() const {
+    return document_ids_.begin();
+}
+std::set<int>::const_iterator SearchServer::end() const {
+    return document_ids_.end();
+}
+// map's count is logariphmic in size
+// 'at' access is log too
+// in the end : log(n)
+const map<string, double>& SearchServer::GetWordFrequencies(int document_id) const {
+    static map<string, double> res;
+    if (documents_.count(document_id)!=0){
+        return doc_to_word_freq.at(document_id);
+    }
+    else {
+        return res;
+    }
+}
+// count for map log(n)
+// at for doc_to_word_freq log(n)
+// loop for word in doc for delete - W
+// on each iteration erase and at's access both log(n) => log(n)
+// in the end : W * log(n), where W - num of word in deleted docs,
+//                                n - num of docs on server
+void SearchServer::RemoveDocument(int document_id){
+    if (doc_to_word_freq.count(document_id) != 0){
+        for (const auto& [word, word_freq]: doc_to_word_freq.at(document_id)){
+            word_to_document_freqs_.at(word).erase(document_id);
+        }
+        doc_to_word_freq.erase(document_id);
+        documents_.erase(document_id);
+        document_ids_.erase(document_id);
+    }
 }

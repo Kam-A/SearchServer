@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
-
+#include "log_duration.h"
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 class SearchServer {
@@ -29,6 +29,7 @@ public:
 
     template <typename DocumentPredicate>
     std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentPredicate document_predicate) const {
+        //LOG_DURATION_STREAM("Operation time", std::cout);
         Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, document_predicate);
 
@@ -51,10 +52,13 @@ public:
 
     int GetDocumentCount() const;
 
-    int GetDocumentId(int index) const;
+    //int GetDocumentId(int index) const;
 
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
-
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+    std::set<int>::const_iterator begin() const;
+    std::set<int>::const_iterator end() const;
+    void RemoveDocument(int document_id);
 private:
     struct DocumentData {
         int rating;
@@ -62,8 +66,9 @@ private:
     };
     const std::set<std::string> stop_words_;
     std::map<std::string, std::map<int, double>> word_to_document_freqs_;
+    std::map<int,std::map<std::string, double>> doc_to_word_freq;
     std::map<int, DocumentData> documents_;
-    std::vector<int> document_ids_;
+    std::set<int> document_ids_;
 
     bool IsStopWord(const std::string& word) const;
     static bool IsValidWord(const std::string& word);
@@ -80,17 +85,13 @@ private:
         }
         return non_empty_strings;
     }
-
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const;
-
     static int ComputeAverageRating(const std::vector<int>& ratings);
-
     struct QueryWord {
         std::string data;
         bool is_minus;
         bool is_stop;
     };
-    
     QueryWord ParseQueryWord(std::string text) const;
     struct Query {
         std::set<std::string> plus_words;

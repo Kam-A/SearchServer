@@ -1,7 +1,7 @@
 #include "search_server.h"
 using namespace std;
 SearchServer::SearchServer(const string& stop_words_text)
-    : SearchServer(SplitIntoWords(stop_words_text)) {
+        : SearchServer(SplitIntoWords(stop_words_text)) {
 }
 void SearchServer::AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings) {
     if ((document_id < 0) || (documents_.count(document_id) > 0)) {
@@ -18,8 +18,8 @@ void SearchServer::AddDocument(int document_id, const string& document, Document
 }
 vector<Document> SearchServer::FindTopDocuments(const string& raw_query, DocumentStatus status) const {
     return SearchServer::FindTopDocuments(raw_query,
-                           [status](int document_id, DocumentStatus document_status, int rating) {
-                               return document_status == status;});
+                                          [status](int document_id, DocumentStatus document_status, int rating) {
+                                              return document_status == status;});
 }
 vector<Document> SearchServer::FindTopDocuments(const string& raw_query) const {
     return SearchServer::FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
@@ -49,6 +49,39 @@ tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& 
         }
     }
 
+    return tuple{matched_words, documents_.at(document_id).status};
+}
+tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const execution::sequenced_policy&,
+                                                                  const string& raw_query,
+                                                                  int document_id) const {
+    return MatchDocument(raw_query,document_id);
+}
+tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const execution::parallel_policy&,
+                                                                  const string& raw_query,
+                                                                  int document_id) const {
+    //LOG_DURATION_STREAM("Operation time", std::cout);
+    Query query = ParseQuery(raw_query);
+    vector<string> matched_words;
+    for_each(execution::par,
+             query.plus_words.begin(),
+             query.plus_words.end(),
+            [&](auto& word){
+                if (word_to_document_freqs_.count(word) != 0) {
+                    if (word_to_document_freqs_.at(word).count(document_id)) {
+                        matched_words.push_back(word);
+                    }
+                }
+    });
+    for_each(execution::par,
+             query.minus_words.begin(),
+             query.minus_words.end(),
+             [&](auto& word){
+                 if (word_to_document_freqs_.count(word) != 0) {
+                     if (word_to_document_freqs_.at(word).count(document_id)) {
+                         matched_words.clear();
+                     }
+                 }
+             });
     return tuple{matched_words, documents_.at(document_id).status};
 }
 bool SearchServer::IsStopWord(const string& word) const {
@@ -143,6 +176,32 @@ void SearchServer::RemoveDocument(int document_id){
         for (const auto& [word, word_freq]: doc_to_word_freq.at(document_id)){
             word_to_document_freqs_.at(word).erase(document_id);
         }
+        doc_to_word_freq.erase(document_id);
+        documents_.erase(document_id);
+        document_ids_.erase(document_id);
+    }
+}
+void SearchServer::RemoveDocument(const execution::sequenced_policy&, int document_id) {
+    RemoveDocument(document_id);
+}
+void SearchServer::RemoveDocument(const execution::parallel_policy&, int document_id) {
+    if (doc_to_word_freq.count(document_id) != 0){
+        vector<string> words_;
+//        for_each(execution::par,
+//                 doc_to_word_freq.at(document_id).begin(),
+//                 doc_to_word_freq.at(document_id).end(),
+//                 [&](const auto& a){
+//                    words_.push_back(a.first);
+//                });
+        for (const auto& [word,seq] : doc_to_word_freq.at(document_id)){
+            words_.push_back(word);
+        }
+        for_each(execution::par,
+                 words_.begin(),
+                 words_.end(),
+                 [&](const auto& w_){
+                    word_to_document_freqs_.at(w_).erase(document_id);
+        });
         doc_to_word_freq.erase(document_id);
         documents_.erase(document_id);
         document_ids_.erase(document_id);

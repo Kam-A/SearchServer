@@ -9,6 +9,7 @@
 #include <cmath>
 #include <utility>
 #include "log_duration.h"
+#include <execution>
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 class SearchServer {
@@ -16,11 +17,11 @@ public:
     // Defines an invalid document id
     // You can refer this constant as SearchServer::INVALID_DOCUMENT_ID
     inline static constexpr int INVALID_DOCUMENT_ID = -1;
-    
+
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words)
-        : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
-            
+            : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
+
     }
 
     // Invoke delegating constructor from string container
@@ -55,10 +56,15 @@ public:
     //int GetDocumentId(int index) const;
 
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::execution::sequenced_policy&, const std::string& raw_query, int document_id) const;
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::execution::parallel_policy&, const std::string& raw_query, int document_id) const;
+
     const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
     std::set<int>::const_iterator begin() const;
     std::set<int>::const_iterator end() const;
     void RemoveDocument(int document_id);
+    void RemoveDocument(const std::execution::sequenced_policy&, int document_id);
+    void RemoveDocument(const std::execution::parallel_policy&, int document_id);
 private:
     struct DocumentData {
         int rating;

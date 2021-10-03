@@ -17,13 +17,16 @@ std::vector<std::vector<Document>> ProcessQueries(
     return res;
 }
 
-std::vector<Document> ProcessQueriesJoined(
+std::list<Document> ProcessQueriesJoined(
         const SearchServer& search_server,
         const std::vector<std::string>& queries) {
-    auto res = ProcessQueries(search_server,queries);
-    std::vector<Document> res_of_res;
-    return std::reduce(std::execution::par, res.begin(),res.end(),res_of_res,
-                [&](auto a, auto b) {
-                    a.insert(a.end(),b.begin(),b.end());
-                    return a;});
+    auto vec_of_vecs = ProcessQueries(search_server,queries);
+    std::list<Document> list_of_docs;
+    for(const auto& vec_of_docs : vec_of_vecs){
+        list_of_docs.insert(list_of_docs.end(),
+                            std::make_move_iterator(vec_of_docs.begin()),
+                            std::make_move_iterator(vec_of_docs.end()));
+    }
+
+    return list_of_docs;
 }

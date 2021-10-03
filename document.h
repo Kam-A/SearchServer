@@ -1,4 +1,3 @@
-//Вставьте сюда своё решение из урока «‎Очередь запросов».‎
 #pragma once
 #include <iostream>
 #include <vector>
@@ -12,9 +11,9 @@ struct Document {
     Document() = default;
 
     Document(int id, double relevance, int rating)
-        : id(id)
-        , relevance(relevance)
-        , rating(rating) {
+            : id(id)
+            , relevance(relevance)
+            , rating(rating) {
     }
 
     int id = 0;

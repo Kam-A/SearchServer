@@ -25,8 +25,22 @@ vector<Document> SearchServer::FindTopDocuments(const string_view raw_query, Doc
                                           [status](int document_id, DocumentStatus document_status, int rating) {
                                               return document_status == status;});
 }
+vector<Document> SearchServer::FindTopDocuments(const execution::sequenced_policy&, const string_view raw_query, DocumentStatus status) const {
+    return SearchServer::FindTopDocuments(raw_query,status);
+}
+vector<Document> SearchServer::FindTopDocuments(const execution::parallel_policy&, const string_view raw_query, DocumentStatus status) const {
+    return SearchServer::FindTopDocuments(execution::par, raw_query,
+                                          [status](int document_id, DocumentStatus document_status, int rating) {
+                                              return document_status == status;});
+}
 vector<Document> SearchServer::FindTopDocuments(const string_view raw_query) const {
     return SearchServer::FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
+}
+vector<Document> SearchServer::FindTopDocuments(const execution::sequenced_policy&, const string_view raw_query) const {
+    return SearchServer::FindTopDocuments(raw_query);
+}
+vector<Document> SearchServer::FindTopDocuments(const execution::parallel_policy&, const string_view raw_query) const {
+    return SearchServer::FindTopDocuments(execution::par, raw_query, DocumentStatus::ACTUAL);
 }
 int SearchServer::GetDocumentCount() const {
     return static_cast<int>(documents_.size());
@@ -56,37 +70,14 @@ tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(const str
     return tuple{matched_words, documents_.at(document_id).status};
 }
 tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(const execution::sequenced_policy&,
-                                                                  const string_view raw_query,
-                                                                  int document_id) const {
+                                                                       const string_view raw_query,
+                                                                       int document_id) const {
     return MatchDocument(raw_query,document_id);
 }
 tuple<vector<string_view>, DocumentStatus> SearchServer::MatchDocument(const execution::parallel_policy&,
-                                                                  const string_view raw_query,
-                                                                  int document_id) const {
-    //LOG_DURATION_STREAM("Operation time", std::cout);
-    Query query = ParseQuery(raw_query);
-    vector<string_view> matched_words;
-    for_each(execution::par,
-             query.plus_words.begin(),
-             query.plus_words.end(),
-            [&](auto& word){
-                if (word_to_document_freqs_.count(word) != 0) {
-                    if (word_to_document_freqs_.at(word).count(document_id)) {
-                        matched_words.push_back(word);
-                    }
-                }
-    });
-    for_each(execution::par,
-             query.minus_words.begin(),
-             query.minus_words.end(),
-             [&](auto& word){
-                 if (word_to_document_freqs_.count(word) != 0) {
-                     if (word_to_document_freqs_.at(word).count(document_id)) {
-                         matched_words.clear();
-                     }
-                 }
-             });
-    return tuple{matched_words, documents_.at(document_id).status};
+                                                                       const string_view raw_query,
+                                                                       int document_id) const {
+    return MatchDocument(raw_query,document_id);
 }
 bool SearchServer::IsStopWord(const string_view word) const {
     return stop_words_.count(word) > 0;
@@ -191,21 +182,16 @@ void SearchServer::RemoveDocument(const execution::sequenced_policy&, int docume
 void SearchServer::RemoveDocument(const execution::parallel_policy&, int document_id) {
     if (doc_to_word_freq.count(document_id) != 0){
         vector<string_view> words_;
-//        for_each(execution::par,
-//                 doc_to_word_freq.at(document_id).begin(),
-//                 doc_to_word_freq.at(document_id).end(),
-//                 [&](const auto& a){
-//                    words_.push_back(a.first);
-//                });
         for (const auto& [word,seq] : doc_to_word_freq.at(document_id)){
             words_.push_back(word);
         }
+        // no conflict in parallel - there're no the same word in words_
         for_each(execution::par,
                  words_.begin(),
                  words_.end(),
                  [&](const auto& w_){
-                    word_to_document_freqs_.at(w_).erase(document_id);
-        });
+                     word_to_document_freqs_.at(w_).erase(document_id);
+                 });
         doc_to_word_freq.erase(document_id);
         documents_.erase(document_id);
         document_ids_.erase(document_id);

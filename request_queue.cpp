@@ -1,7 +1,7 @@
 #include "request_queue.h"
 using namespace std;
 RequestQueue::RequestQueue(const SearchServer& search_server) :
-    search_server_(search_server),time_(0),empty_req_num_(0) {
+        search_server_(search_server),time_(0),empty_req_num_(0) {
 }
 vector<Document> RequestQueue::AddFindRequest(const string& raw_query, DocumentStatus status) {
     vector<Document> res = search_server_.FindTopDocuments(raw_query, status);

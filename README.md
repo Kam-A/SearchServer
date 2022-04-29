@@ -1,12 +1,16 @@
 # SearchServer
 
+Simple search system
 
-Simple searchserver:
+## Features:
+
  - add docs as strings
  - search by words
  - minus words
  - output sorted by relevance
  - parallel query(example in test.cpp)
- - help class concurrent_map
+ - implemented help-class concurrent_map for parallel algos
 
-Usage in test.cpp
+## Usage:
+
+Examples in test.cpp
